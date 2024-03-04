@@ -1,9 +1,10 @@
 "use client";
 
+import axios from "axios";
 import * as z from "zod";
 import Heading from "@/components/Heading";
 import { MessageSquare } from "lucide-react";
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { formSchema } from "./constants";
@@ -11,8 +12,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import Loader from "@/components/Loader";
 
 const ConversationPage = () => {
+    const router = useRouter();
+    const [messages, setMessages] = useState<string[]>([]);
+
     // zod ka use hm form validation k liye krte hain
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -24,7 +30,33 @@ const ConversationPage = () => {
     const isLoading = form.formState.isSubmitting;
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
-        console.log(values);
+        try {
+            // old messages in chat
+            const userMessages: { role: string; message: string } = {
+                role: "user",
+                message: values.prompt,
+            };
+
+            // new messages and old messages in chat
+            const newMessages = [...messages, userMessages];
+
+            // Api request
+            const res = await axios.post("/api/conversation", {
+                message: values.prompt,
+            });
+
+            // response from api
+            const response = res.data;
+
+            // setMessages((current) => [...current, userMessages, response]);
+            setMessages(response);
+            form.reset();
+        } catch (error) {
+            // Todo: Pro model
+            console.log(error);
+        } finally {
+            router.refresh();
+        }
     };
 
     return (
@@ -67,7 +99,18 @@ const ConversationPage = () => {
                         </form>
                     </Form>
                 </div>
-                <div className="mt-4 space-y-4">Messages</div>
+                <div className="mt-4 space-y-4">
+                    <div>
+                        {isLoading && (
+                            <div className="w-full flex justify-center bg-gray-200 items-center py-6">
+                                <Loader />
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex flex-col-reverse gap-y-4">
+                        {messages}
+                    </div>
+                </div>
             </div>
         </div>
     );
